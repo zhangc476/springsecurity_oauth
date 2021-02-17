@@ -25,6 +25,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .and().csrf().disable();
     }
 
+    //AuthenticationManager对象在OAuth2认证服务中要使用，提取放入IOC容器中, 主要用于授权码模式
+    @Bean
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean();
+    }
+
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

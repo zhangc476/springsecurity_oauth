@@ -27,11 +27,45 @@ import javax.sql.DataSource;
 public class OauthServerConfig extends AuthorizationServerConfigurerAdapter {
 
     @Autowired
+    private UserDetailsService userDetailsService;
+
+    @Autowired
     private DataSource dataSource;
     //从数据库中查询出客户端信息
+
+    //授权信息保存策略
+    @Bean
+    public ApprovalStore approvalStore() {
+        return new JdbcApprovalStore(dataSource);
+    }
+
+    @Bean
+    public AuthorizationCodeServices authorizationCodeServices() {
+        return new JdbcAuthorizationCodeServices(dataSource);
+    }
+
+    @Bean
+    public TokenStore tokenStore() {
+        return new JdbcTokenStore(dataSource);
+    }
+
     @Bean
     public JdbcClientDetailsService clientDetailsService() {
         return new JdbcClientDetailsService(dataSource);
+    }
+
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    //支持密码模式, 并将以密码模式获取的access_token相关信息持久化
+    @Override
+    public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+        endpoints
+                .userDetailsService(userDetailsService)
+                .authenticationManager(authenticationManager)
+                .approvalStore(approvalStore())
+                .authorizationCodeServices(authorizationCodeServices())
+                .tokenStore(tokenStore());
     }
 
     //设置 /oauth/check_token 端点，通过认证后可访问。
