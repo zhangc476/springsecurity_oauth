@@ -1,6 +1,7 @@
 package com.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,10 +18,16 @@ import org.springframework.security.oauth2.provider.approval.JdbcApprovalStore;
 import org.springframework.security.oauth2.provider.client.JdbcClientDetailsService;
 import org.springframework.security.oauth2.provider.code.AuthorizationCodeServices;
 import org.springframework.security.oauth2.provider.code.JdbcAuthorizationCodeServices;
+import org.springframework.security.oauth2.provider.token.TokenEnhancer;
+import org.springframework.security.oauth2.provider.token.TokenEnhancerChain;
 import org.springframework.security.oauth2.provider.token.TokenStore;
 import org.springframework.security.oauth2.provider.token.store.JdbcTokenStore;
+import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
+import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 
 import javax.sql.DataSource;
+import java.util.ArrayList;
+import java.util.List;
 
 @Configuration
 @EnableAuthorizationServer
@@ -44,10 +51,16 @@ public class OauthServerConfig extends AuthorizationServerConfigurerAdapter {
         return new JdbcAuthorizationCodeServices(dataSource);
     }
 
-    @Bean
-    public TokenStore tokenStore() {
-        return new JdbcTokenStore(dataSource);
-    }
+    @Autowired
+    @Qualifier("jwtTokenStore")
+    private TokenStore tokenStore;
+
+    @Autowired
+    private JwtAccessTokenConverter jwtAccessTokenConverter;
+
+    @Autowired
+    private JwtTokenEnhancer jwtTokenEnhancer;
+
 
     @Bean
     public JdbcClientDetailsService clientDetailsService() {
@@ -60,12 +73,22 @@ public class OauthServerConfig extends AuthorizationServerConfigurerAdapter {
     //支持密码模式, 并将以密码模式获取的access_token相关信息持久化
     @Override
     public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
+
+        // 增强jwt
+        TokenEnhancerChain tokenEnhancerChain = new TokenEnhancerChain();
+        List<TokenEnhancer> enhancerList = new ArrayList();
+        enhancerList.add(jwtTokenEnhancer);
+        enhancerList.add(jwtAccessTokenConverter);
+        tokenEnhancerChain.setTokenEnhancers(enhancerList);
+
         endpoints
                 .userDetailsService(userDetailsService)
                 .authenticationManager(authenticationManager)
                 .approvalStore(approvalStore())
                 .authorizationCodeServices(authorizationCodeServices())
-                .tokenStore(tokenStore());
+                .tokenStore(tokenStore)
+                .accessTokenConverter(jwtAccessTokenConverter)
+                .tokenEnhancer(tokenEnhancerChain);
     }
 
     //设置 /oauth/check_token 端点，通过认证后可访问。
